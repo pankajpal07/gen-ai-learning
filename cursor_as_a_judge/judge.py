@@ -1,0 +1,127 @@
+from dotenv import load_dotenv
+from openai import OpenAI
+import os
+import json
+from tools import search_internet
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("API_KEY"),
+    base_url=os.getenv("BASE_URL")
+)
+
+available_tools = {
+    'search_internet': {
+        'fn': search_internet,
+        'description': 'Takes a query as input and returns the latest trends of that query'
+    }
+}
+
+def ask_ai(user_query: str):
+    print('AI (JUDGE) :', user_query)
+    question = [
+        { 'role': 'user', 'content': user_query }
+    ]
+
+    response = client.chat.completions.create(
+        model=os.getenv('MODEL'),
+        response_format={"type": "json_object"},
+        messages=question
+    )
+
+    return response.choices[0].message.content
+
+system_prompt="""
+You are a very helpful assistant who is exper in resolving user queries.
+You can also provide the research on latest data and news by browsing the internet.
+You can simply say no to the quesries if don't have the resolution or answer to them but never give the incorrect answer, if you are in doubt then think again.
+You are a supervisor who is checking the answers thoroughly and is very strict about the quality of the answers.
+You are not allowed to say anything which is not related to the query.
+
+Rules:
+- Follow the strict JSON format.
+- You work on start, plan, action, observe and output mode
+- Always perform one step at a time and wait for the input
+- Carefully analyze the user query
+- Analyse the output youself first before giving to the user
+- If your supervisor says that the accuracy of your answer is not good, then you should not give the answer to the user. You have to repeat the same process again to generate another output
+
+Output:
+{
+    'step': 'string',
+    'content': 'string',
+    'function': 'The name of the function if and only if the step is action
+    'input': 'The input paramter to the function
+}
+
+Available Tools:
+- verify_answer
+- search_internet
+
+Example:
+User Query: What is the third law of motion?
+Output: {'step': 'start', 'content': 'The user is asking the third law of motion' }
+Output: {'step': 'plan', 'content': 'I know the third law of motion, so no need to use any provided tool' }
+Output: {'step': 'action', 'output': 'Third law of motion is "for every action, there is an equal and opposite reaction"' }
+Output: {'step': 'observe', 'output': 'The accuracy of this answer is above 90%' }
+Output: {'step': 'output', 'content': 'The answer is correct, third law of motion is "for every action, there is an equal and opposite reaction"' }
+
+Example:
+User Query: Who is likely to win the IPL in 2025?
+Output: {'step': 'start', 'content': 'The user is asking the winner of IPL 2025' }
+Output: {'step': 'plan', 'content': 'From the available tool, I have to use search_internet to get the latest trends of the IPL 2025' }
+Output: {'step': 'action', 'function': 'search_internet', 'input: 'latest trends of IPL 2025' }
+Output: {'step': 'observe', 'output': 'According to the latest trends, Mumbai Indians is the likely winner of the IPL 2025' }
+Output: {'step': 'output', 'content': 'The accuracy of this answer is below 50% because MI is at third place and Gujrat Titans is at first first, so most likely the winner is GT' }
+"""
+
+def verify_answer(user_query: str, answer: str):
+    print('===============================================')
+    print('Verifying if the answer is correct or not')
+    print('USER:', user_query)
+    print('BOT:', answer)
+    print('===============================================')
+    messages = [
+        { 'role': 'system', 'content': system_prompt },
+        { 'role': 'user', 'content': 'Is the answer correct? Question: {user_query} and answer: {answer}' }
+    ]
+
+    while True:
+        response = client.chat.completions.create(
+            model=os.getenv('MODEL'),
+            response_format={"type": "json_object"},
+            messages=messages
+        )
+
+        # print(response.choices[0].message.content)
+
+        parsed_output = json.loads(response.choices[0].message.content)
+        messages.append({'role': 'assistant', 'content': json.dumps(parsed_output)})
+
+        if parsed_output.get('step') == 'plan':
+            print(f'THINKING (JUDGE) :({parsed_output.get("step")})', parsed_output.get('content'))
+            continue
+
+        if parsed_output.get('step') == 'action':
+            tool_name = parsed_output.get('function')
+            tool_input = parsed_output.get('input')
+
+            if (tool_name == 'search_internet'):
+                output = available_tools[tool_name].get('fn')(tool_input + ' is this statement correct?')
+                ai_response = ask_ai(f'Based on the below provided data, can you tell me how much this statement is accurate: {user_query}, \n data: {output}')
+                messages.append({'role': 'assistant', 'content': json.dumps({'step': 'observe', 'output': ai_response})})
+                continue
+
+            if available_tools.get(tool_name, False) != False:
+                output = available_tools[tool_name].get('fn')(tool_input)
+                messages.append({'role': 'assistant', 'content': json.dumps({'step': 'observe', 'output': output})})
+                continue
+
+        if parsed_output.get('step') == 'output':
+            print('VERIFICATION (JUDGE) : ', parsed_output.get('content'))
+            return parsed_output.get('content')
+
+if __name__ == "__main__":
+    query = input('> ')
+    verify_answer(query)

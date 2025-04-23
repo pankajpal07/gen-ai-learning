@@ -8,8 +8,8 @@ from openai import OpenAI
 load_dotenv()
 
 client = OpenAI(
-        api_key=os.getenv("GEMINI_API_KEY"),
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        api_key=os.getenv("API_KEY"),
+        base_url=os.getenv("BASE_URL")
     )
 
 def query_db(sql):
@@ -89,7 +89,7 @@ while True:
 
     while True:
         response = client.chat.completions.create(
-            model='gemini-2.0-flash',
+            model=os.getenv('MODEL'),
             response_format={"type": "json_object"},
             messages=messages,
         )

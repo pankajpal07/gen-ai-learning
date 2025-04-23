@@ -6,11 +6,11 @@ def main():
     load_dotenv()
     message = input("👨: ")
     client = OpenAI(
-        api_key=os.getenv("GEMINI_API_KEY"),
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        api_key=os.getenv("API_KEY"),
+        base_url=os.getenv("BASE_URL")
     )
     result = client.chat.completions.create(
-        model="gemini-2.0-flash",
+        model=os.getenv('MODEL'),
         messages=[
             { "role": "user", "content": message}
         ]

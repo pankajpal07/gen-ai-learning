@@ -6,11 +6,11 @@ def main():
 
     load_dotenv()
 
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("API_KEY")
 
     client = OpenAI(
         api_key=api_key,
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        base_url=os.getenv("BASE_URL")
     )
 
     text = "Eiffel Tower is in Paris and is a famous landmark, it is 324 meters tall"
