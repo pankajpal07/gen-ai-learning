@@ -4,6 +4,7 @@ import json
 import requests
 from dotenv import load_dotenv
 from openai import OpenAI
+import subprocess
 
 load_dotenv()
 
@@ -12,14 +13,22 @@ client = OpenAI(
         base_url=os.getenv("BASE_URL")
     )
 
-def query_db(sql):
-    pass
-
 def run_command(command):
+    print("🔨 Tool Called: run_command", command)
     # execute command
     # return result
-    result = os.system(command=command)
+    # result = os.system(command=command)
+    result = subprocess.check_output(command, shell=False) 
+
     return result
+
+def read_file(file_path):
+    print("🔨 Tool Called: read_file", file_path)
+    # read file
+    # return content
+    with open(file_path, 'r') as file:
+        content = file.read()
+    return content
 
 def get_weather(city: str):
     # TODO: Perform an actual API call
@@ -43,6 +52,10 @@ available_tools = {
         "fn": run_command,
         "description": "Takes a command as input to execute on sustem and returns output.",
     },
+    "read_file": {
+        "fn": read_file,
+        "description": "Takes a file path as input and returns the content of the file.",
+    }
 }
 
 system_prompt = f"""
@@ -51,6 +64,8 @@ system_prompt = f"""
     For the given user query and available tools, plan the step by step execution, based on the planning,
     select the relevant tool from the available tool. and based on the tool selection you perform an action to call the tool
     Wait for the observation and based on the observation from the tool call resolve the user query.
+    If you feel that in any prompt, there is a code error then you have to fix that code error and then run the complete process again from start, plan, action, observe and this time you have to give the correct output with more relevant prompt.
+    If you want you can also update the system prompt to make it more relevant and useful for the user when it comes next time, but system_prompt is genetic, don't change it too much for a single user or query.
 
     Rules:
     - Follow the Output JSON Format.
@@ -68,6 +83,7 @@ system_prompt = f"""
     Available Tools:
     - get_weather: Takes a city name as an input and returns the current weather of that city.
     - run_command: Takes a command as input to execute on sustem and returns output.
+    - read_file: Takes a file path as input and returns the content of the file.
 
     Example:
     User Query:  What is the weather of new york?
@@ -106,8 +122,11 @@ while True:
             tool_input = parsed_output.get('input')
 
             if available_tools.get(tool_name, False) != False:
-                output = available_tools[tool_name].get('fn')(tool_input)
-                messages.append({ 'role': 'assistant', 'content': json.dumps({ 'step': 'observe', 'output': output }) })
+                try:
+                    output = available_tools[tool_name].get('fn')(tool_input)
+                    messages.append({ 'role': 'assistant', 'content': json.dumps({ 'step': 'observe', 'output': output }) })
+                except Exception as e:
+                    messages.append({ 'role': 'assistant', 'content': json.dumps({ 'step': 'observe', 'output': print(e) }) })
                 continue
 
         if parsed_output['step'] == 'output':
