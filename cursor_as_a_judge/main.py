@@ -7,6 +7,12 @@ from judge import verify_answer
 
 load_dotenv()
 
+GREY = '\033[90m'
+RED = '\033[91m'
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+NORMAL = '\033[0m'
+
 client = OpenAI(
     api_key=os.getenv("API_KEY"),
     base_url=os.getenv("BASE_URL")
@@ -93,7 +99,7 @@ def request_ai(user_query: str):
         messages.append({'role': 'assistant', 'content': json.dumps(parsed_output)})
 
         if parsed_output.get('step') == 'plan':
-            print(f'THINKING (BOT) :({parsed_output.get("step")})', parsed_output.get('content'))
+            print(f'{GREY}({parsed_output.get("step")}) {parsed_output.get('content')}{NORMAL}')
             continue
 
         if parsed_output.get('step') == 'action':
@@ -115,7 +121,7 @@ def request_ai(user_query: str):
                 continue
 
         if parsed_output.get('step') == 'output':
-            print('ANSWER (BOT) :', parsed_output.get('content'))
+            print(f'{GREEN}{parsed_output.get('content')}{NORMAL}')
             return parsed_output.get('content')
         
 if __name__ == "__main__":

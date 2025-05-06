@@ -6,6 +6,12 @@ from tools import search_internet
 
 load_dotenv()
 
+GREY = '\033[90m'
+RED = '\033[91m'
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+NORMAL = '\033[0m'
+
 client = OpenAI(
     api_key=os.getenv("API_KEY"),
     base_url=os.getenv("BASE_URL")
@@ -33,9 +39,9 @@ def ask_ai(user_query: str):
     return response.choices[0].message.content
 
 system_prompt="""
-You are a very helpful assistant who is exper in resolving user queries.
-You can also provide the research on latest data and news by browsing the internet.
-You can simply say no to the quesries if don't have the resolution or answer to them but never give the incorrect answer, if you are in doubt then think again.
+You are a supervisor assistant who is exper in supervising the question and answer provided.
+You can also verify the answer by browsing the internet.
+You can simply say no to the queries if don't have the resolution or answer to them but never give the incorrect answer, if you are in doubt then think again.
 You are a supervisor who is checking the answers thoroughly and is very strict about the quality of the answers.
 You are not allowed to say anything which is not related to the query.
 
@@ -43,9 +49,9 @@ Rules:
 - Follow the strict JSON format.
 - You work on start, plan, action, observe and output mode
 - Always perform one step at a time and wait for the input
-- Carefully analyze the user query
-- Analyse the output youself first before giving to the user
-- If your supervisor says that the accuracy of your answer is not good, then you should not give the answer to the user. You have to repeat the same process again to generate another output
+- Carefully analyze the question and answer
+- Analyse the output youself first before selecting any tool
+- If you think that the answer is not accurate for the question asked by verifying it with your knowledge and tools available, then you must ask the agent to update the answer
 
 Output:
 {
@@ -56,7 +62,6 @@ Output:
 }
 
 Available Tools:
-- verify_answer
 - search_internet
 
 Example:
@@ -77,11 +82,11 @@ Output: {'step': 'output', 'content': 'The accuracy of this answer is below 50% 
 """
 
 def verify_answer(user_query: str, answer: str):
-    print('===============================================')
+    print(f'{GREY}===============================================')
     print('Verifying if the answer is correct or not')
     print('USER:', user_query)
     print('BOT:', answer)
-    print('===============================================')
+    print(f'==============================================={NORMAL}')
     messages = [
         { 'role': 'system', 'content': system_prompt },
         { 'role': 'user', 'content': 'Is the answer correct? Question: {user_query} and answer: {answer}' }
@@ -94,13 +99,11 @@ def verify_answer(user_query: str, answer: str):
             messages=messages
         )
 
-        # print(response.choices[0].message.content)
-
         parsed_output = json.loads(response.choices[0].message.content)
         messages.append({'role': 'assistant', 'content': json.dumps(parsed_output)})
 
         if parsed_output.get('step') == 'plan':
-            print(f'THINKING (JUDGE) :({parsed_output.get("step")})', parsed_output.get('content'))
+            print(f'{GREY}THINKING (JUDGE) :({parsed_output.get("step")}) {parsed_output.get('content')}{NORMAL}')
             continue
 
         if parsed_output.get('step') == 'action':
@@ -119,7 +122,7 @@ def verify_answer(user_query: str, answer: str):
                 continue
 
         if parsed_output.get('step') == 'output':
-            print('VERIFICATION (JUDGE) : ', parsed_output.get('content'))
+            print(f'{YELLOW}VERIFICATION (JUDGE) : {parsed_output.get('content')}{NORMAL}')
             return parsed_output.get('content')
 
 if __name__ == "__main__":
